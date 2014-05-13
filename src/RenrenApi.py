@@ -10,66 +10,63 @@ from configparser import ConfigParser
 from urllib.request import urlopen, unquote
 from urllib.parse import urlencode
 import json
+import time
 
 class RenrenAPI():
-    def __init__(self, config_file, access_token=""):
+    def __init__(self, config_file, debug=False):
         """
         RenrenAPI初始化
         RenrenAPI用于使用人人网相关api
         
         :param config_file: 人人API相关值文件
-        :param access_token: 初始化token值
+        :param info : 存放人人API相关参数
+        :param r_url: 用于存放请求地址
         """
-        
+        self.debug = debug        
         self.log_message("RenrenAPI初始化中……")
         self.config_file = config_file
-        self.access_token = access_token
-        self.log_message("OK!", 0) 
-         
-    message_array = []
+        self.r_url = ""
+        
+        #读取配置文件
+        self.config = ConfigParser()
+        self.config.read(self.config_file)
+        self.info = {"APP_ID": self.config.get("Renren","app_id"),
+                     "API_KEY": self.config.get("Renren","api_key"),
+                     "SECRET_KEY": self.config.get("Renren","secret_key"),
+                     "AUTHORIZE": self.config.get("Renren","authorize"),
+                     "API_URL": self.config.get("Renren","api_url"),
+                     "REDIRECT_URL": self.config.get("Renren","redirect_url"),
+                     "ACCESS_TOKEN": self.config.get("Renren","access_token")
+                    }
+
+        self.log_message("OK!") 
     
-    def log_message(self,message,clear=True):
+    def log_message(self,message):
         """        
         Logs the message to the message_array, from where is
         retrieved to display in the console.
         
         :param message: The message string.
-        :param clear: Buffer Clearane.
         """
         
-        if clear:
-            self.message_array = message
-        else:
-            self.message_array = "".join([self.message_array,message])
-            
-    def get_message(self):
-        """
-        Returns the log message to the console.
-        
-        :return: Returns the message.
-        """
-        
-        return self.message_array
-        
+        if self.debug == True:
+            ctime = time.strftime("%Y-%m-%d %H:%M:%S")
+            print(ctime + "  " + message)
+
     def get_access_token(self,xrenew=False):
         """
         生成人人网认证请求链接
         
-        :param config_file: 存有人人认证信息的配置文件路径
         :param xrenew: 如果此值为真，则会强制重新获取access_token,用于更换用户
         """
         
-        #读取配置文件
-        config = ConfigParser()
-        config.read(self.config_file)
-        
         #获取人人网认证信息
-        url = config.get("Renren","URL")
-        
+        url = self.info["AUTHORIZE"]
+
         #拼接请求字段
         
-        param = {   "client_id": config.get("Renren","API_KEY"),
-                    "redirect_uri": config.get("Renren","REDIRECT_URI"),
+        param = {   "client_id": self.info["API_KEY"],
+                    "redirect_uri": self.info["REDIRECT_URL"],
                     "response_type": "token",
                     "display": "popup"
                 }
@@ -81,104 +78,61 @@ class RenrenAPI():
         r_url = "%s?%s" % (url,request)
         
         open_new_tab(r_url)
-        self.access_token = unquote(input("请输入浏览器中的access_token：\n"))
+        self.info["ACCESS_TOKEN"] = \
+            unquote(input("请输入浏览器中的access_token：\n"))
+        self.config.set("Renren", "access_token", self.info["ACCESS_TOKEN"])          
+
+    def url_wrapper(self,attr):
+        """
+        请求地址封装
+        
+        :param attr:请求参数
+        :param r_url:请求地址
+        """
+        
+        self.r_url = "%s/%s" % (self.r_url, attr)
+        
+        return self
     
-    def user_friend_list(self, userId, pageSize, pageNumber):
+    def request(self, request_list):
         """
-        获取某个用户的好友列表
+        请求函数
         
-        :param url: 请求地址
-        :param userId: 用户ID
-        :param pageSize: 页面大小（返回数量）
-        :param pageNumber: 页码
-        """
-        
-        url = "https://api.renren.com/v2/user/friend/list"
-        param = {   "userId": userId,
-                    "pageSize": pageSize,
-                    "pageNumber": pageNumber,
-                    "access_token": self.access_token
-                }
-        request = urlencode(param)
-        r_url = "%s?%s" % (url, request)
-        
-        self.log_message("获取好友列表中(第{}页，每页{}个)……".format(pageNumber,
-                                                                pageSize))
-        response = urlopen(r_url)
-        rep = response.read()
-        rep = rep.decode("utf8")
-        jcode = json.loads(rep)
-        self.log_message("OK!", 0) 
-        
-        return jcode["response"]
-    
-    def user_login_get(self):
-        """ 
-        获取当前登录用户信息
-        
-        :param url: 请求地址
-        """
-        
-        url = "https://api.renren.com/v2/user/login/get"
-        param = {   "access_token": self.access_token,
-                }
-        request = urlencode(param)
-        r_url = "%s?%s" % (url, request)
-        
-        self.log_message("正在获取当前登录用户信息……")
-        response = urlopen(r_url)
-        rep = response.read()
-        rep = rep.decode("utf8")
-        jcode = json.loads(rep)
-        self.log_message("OK!", 0) 
-        
-        return jcode["response"]
-        
-    def user_get(self, userId):
-        """ 
-        获取用户信息
-        
-        :param url: 请求地址
-        :param userId: 用户ID，不传时表示获取access_token对应的用户信息
-        """
-        
-        url = "https://api.renren.com/v2/user/get"
-        param = {   "access_token": self.access_token,
-                    "userId": str(userId)
-                }
-        request = urlencode(param)
-        r_url = "%s?%s" % (url, request)
-        
-        self.log_message("正在获取用户(ID={0})信息……".format(userId))
-        response = urlopen(r_url)
-        rep = response.read()
-        rep = rep.decode("utf8")
-        jcode = json.loads(rep)
-        self.log_message("OK!", 0) 
-        
-        return jcode["response"]
-    
-    def profile_get(self, userId):
-        """
-        获取用户的主页信息，包括各种统计数据。
-        
-        :param url: 请求地址
-        :param userId: 用户ID        
+        :param request_list: 请求参数列表
         """
 
-        url = "https://api.renren.com/v2/profile/get"
-        param = {   "access_token": self.access_token,
-                    "userId": userId
-                }
-        request = urlencode(param)
-        r_url = "%s?%s" % (url, request)
+        #请求链接生成     
+        request_list["access_token"] = self.info["ACCESS_TOKEN"]
+        url = self.info["API_URL"] + self.r_url
+        url = "%s?%s" % (url, urlencode(request_list))
         
-        self.log_message("正在获取用户的主页信息……")
-        response = urlopen(r_url)
+        #发起请求
+        self.log_message("Requesting({0})....".format(self.r_url))         
+        response = urlopen(url)
         rep = response.read()
         rep = rep.decode("utf8")
         jcode = json.loads(rep)
-        self.log_message("OK!", 0)
+        self.log_message("OK!")
+        
+        #清空r_url请求字段
+        self.r_url = ""
         
         return jcode["response"]
+        
+    def __getattr__(self, attr):
+        return self.url_wrapper(attr)
     
+    def __call__(self, key={}):
+        return self.request(key)
+        
+    def __del__(self):
+        #保存更改的参数
+        self.config.write(open(self.config_file, "w"))
+        
+if __name__ == "__main__":
+    renren = RenrenAPI("config.ini", debug=True)
+    
+    #renren.get_access_token(0)
+    
+    info = renren.user.login.get()
+    print(info["name"])
