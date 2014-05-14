@@ -11,9 +11,10 @@ from urllib.request import urlopen, unquote
 from urllib.parse import urlencode
 import json
 import time
+import sys
 
 class RenrenAPI():
-    def __init__(self, config_file, debug=False):
+    def __init__(self, config_file="Config.ini", debug=False):
         """
         RenrenAPI初始化
         RenrenAPI用于使用人人网相关api
@@ -107,11 +108,26 @@ class RenrenAPI():
         url = "%s?%s" % (url, urlencode(request_list))
         
         #发起请求
-        self.log_message("Requesting({0})....".format(self.r_url))         
-        response = urlopen(url)
-        rep = response.read()
-        rep = rep.decode("utf8")
-        jcode = json.loads(rep)
+        self.log_message("Requesting({0})....".format(self.r_url)) 
+        try:        
+            response = urlopen(url)
+        except Exception as error:
+            #异常处理
+            code = str(error.code)
+            reason = str(error.reason)
+            self.log_message("HttpError {0} : {1}".format(code, reason))
+            content = error.read()
+            content = content.decode("utf8")
+            jcode = json.loads(content)
+            message = jcode["error"]["message"]
+            self.log_message(message)
+            
+            #抛出异常
+            raise Exception("RenrenApi Error: " + message)
+            
+        content = response.read()
+        content = content.decode("utf8")
+        jcode = json.loads(content)
         self.log_message("OK!")
         
         #清空r_url请求字段
@@ -130,9 +146,9 @@ class RenrenAPI():
         self.config.write(open(self.config_file, "w"))
         
 if __name__ == "__main__":
-    renren = RenrenAPI("config.ini", debug=True)
+    renren = RenrenAPI("config_ty.ini", debug=True)
     
-    #renren.get_access_token(0)
+    renren.get_access_token(0)
     
     info = renren.user.login.get()
     print(info["name"])
