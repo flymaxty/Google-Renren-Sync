@@ -11,7 +11,6 @@ from urllib.request import urlopen, unquote
 from urllib.parse import urlencode
 import json
 import time
-import sys
 
 class RenrenAPI():
     def __init__(self, config_file="Config.ini", debug=False):
@@ -43,15 +42,18 @@ class RenrenAPI():
         self.log_message("OK!") 
     
     def log_message(self,message):
-        """        
-        Logs the message to the message_array, from where is
-        retrieved to display in the console.
+        """
+        用于记录和输出调试信息
         
-        :param message: The message string.
+        :param message: 记录的信息
+        :param ctime: 格式化时间戳
         """
         
         if self.debug == True:
+            
+            #格式化时间输出
             ctime = time.strftime("%Y-%m-%d %H:%M:%S")
+            
             print(ctime + "  " + message)
 
     def get_access_token(self,xrenew=False):
